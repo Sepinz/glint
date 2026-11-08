@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 460" role="img" aria-label="Pipeline: the NTFS drive is read sequentially, parsed in parallel, and built into a sorted index that answers searches. A snapshot on disk reloads the index and the change journal keeps it live.">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5 0 10z" fill="#59636e"/></marker></defs>
+<g font-family='"Segoe UI Variable Display","Segoe UI",-apple-system,BlinkMacSystemFont,system-ui,sans-serif'>
+<rect x="1" y="1" width="1198" height="458" rx="16" fill="#f6f8fa" stroke="#d0d7de" stroke-width="2"/>
+<text x="52" y="76" font-size="36" font-weight="700" fill="#1f2328">From raw disk to results</text>
+<rect x="52" y="132" width="196" height="104" rx="12" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/><text x="150" y="178" text-anchor="middle" font-size="24" font-weight="600" fill="#1f2328">NTFS drive</text><text x="150" y="210" text-anchor="middle" font-size="20" fill="#59636e">the raw file table</text>
+<line x1="250" x2="272" y1="184" y2="184" stroke="#59636e" stroke-width="2" marker-end="url(#a)"/>
+<rect x="275" y="132" width="196" height="104" rx="12" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/><text x="373" y="178" text-anchor="middle" font-size="24" font-weight="600" fill="#1f2328">Sequential read</text><text x="373" y="210" text-anchor="middle" font-size="20" fill="#59636e">4 MiB chunks</text>
+<line x1="473" x2="495" y1="184" y2="184" stroke="#59636e" stroke-width="2" marker-end="url(#a)"/>
+<rect x="498" y="132" width="196" height="104" rx="12" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/><text x="596" y="178" text-anchor="middle" font-size="24" font-weight="600" fill="#1f2328">Parallel parse</text><text x="596" y="210" text-anchor="middle" font-size="20" fill="#59636e">55 ns per record</text>
+<line x1="696" x2="718" y1="184" y2="184" stroke="#59636e" stroke-width="2" marker-end="url(#a)"/>
+<rect x="721" y="132" width="196" height="104" rx="12" fill="#ffffff" stroke="#b4690e" stroke-width="2"/><text x="819" y="178" text-anchor="middle" font-size="24" font-weight="600" fill="#1f2328">Sorted index</text><text x="819" y="210" text-anchor="middle" font-size="20" fill="#59636e">33 bytes per item</text>
+<line x1="919" x2="941" y1="184" y2="184" stroke="#59636e" stroke-width="2" marker-end="url(#a)"/>
+<rect x="944" y="132" width="196" height="104" rx="12" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/><text x="1042" y="178" text-anchor="middle" font-size="24" font-weight="600" fill="#1f2328">Your search</text><text x="1042" y="210" text-anchor="middle" font-size="20" fill="#59636e">5–7 ms</text>
+<rect x="609" y="316" width="196" height="104" rx="12" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/><text x="707" y="362" text-anchor="middle" font-size="24" font-weight="600" fill="#1f2328">Change journal</text><text x="707" y="394" text-anchor="middle" font-size="20" fill="#59636e">keeps it live</text>
+<rect x="833" y="316" width="196" height="104" rx="12" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/><text x="931" y="362" text-anchor="middle" font-size="24" font-weight="600" fill="#1f2328">Snapshot</text><text x="931" y="394" text-anchor="middle" font-size="20" fill="#59636e">loads in ~70 ms</text>
+<path d="M707.0 313V276H777.0V241" fill="none" stroke="#59636e" stroke-width="2" marker-end="url(#a)"/>
+<path d="M931.0 313V276H861.0V241" fill="none" stroke="#59636e" stroke-width="2" marker-start="url(#a)" marker-end="url(#a)"/>
+</g>
+</svg>

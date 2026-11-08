@@ -24,6 +24,8 @@ use memchr::memmem;
 use crate::index::{Index, F_HIDDEN, F_READONLY, F_REPARSE, F_SYSTEM, MAX_DEPTH, NONE};
 use crate::when;
 
+mod literals;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Cmp {
     Lt,
@@ -44,7 +46,8 @@ enum Pat {
         chars: Vec<char>,
         ascii: bool,
     },
-    Regex(regex::Regex),
+    /// A match contains one of these lowercased strings, if any are known.
+    Regex(regex::Regex, Vec<Vec<u8>>),
     Ext(Vec<Vec<u8>>),
     Size(Cmp, u64),
     Files,
@@ -238,7 +241,7 @@ impl Query {
                 let by_name = !path
                     && alts
                         .iter()
-                        .all(|p| matches!(p, Pat::Sub { .. } | Pat::Wild { .. } | Pat::Regex(_)));
+                        .all(|p| matches!(p, Pat::Sub { .. } | Pat::Wild { .. } | Pat::Regex(..)));
                 terms.push(Term {
                     alts,
                     neg,
@@ -290,7 +293,7 @@ impl Query {
                     .case_insensitive(true)
                     .build()
                     .map_err(|e| format!("invalid regex: {e}"))?;
-                push(vec![Pat::Regex(re)], neg, false, 3);
+                push(vec![Pat::Regex(re, literals::required(r))], neg, false, 3);
             } else if let Some((filter, r)) = strip_kw(body, "file:")
                 .map(|r| (Pat::Files, r))
                 .or_else(|| strip_kw(body, "folder:").map(|r| (Pat::Folders, r)))
@@ -450,7 +453,12 @@ impl Pat {
                 );
                 glob_chars(chars, &tmp.chars)
             }
-            Pat::Regex(re) => std::str::from_utf8(hay).is_ok_and(|s| re.is_match(s)),
+            Pat::Regex(re, any) => {
+                // Unicode case folding lets ASCII pattern text match non-ASCII
+                // names (k matches the Kelvin sign), so those skip the filter.
+                (any.is_empty() || !hay.is_ascii() || any.iter().any(|n| contains_ci_ascii(hay, n)))
+                    && std::str::from_utf8(hay).is_ok_and(|s| re.is_match(s))
+            }
             Pat::Ext(list) => {
                 !ix.is_dir(i)
                     && memchr::memrchr(b'.', hay)

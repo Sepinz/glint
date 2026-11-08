@@ -138,6 +138,7 @@ Searches ignore case. `size:` on a folder compares its total size.
 - **Flat snapshot:** a warm start reads straight into the final allocations, then validates them.
 - **Parallel search:** rayon with SIMD `memchr` matching, and stale queries are cancelled.
 - **Incremental typing:** extending a plain query only filters the previous results.
+- **Regex filter:** names missing the text a pattern requires never reach the regex engine.
 - **No extra fields:** folder totals and file attributes live in space the index already had.
 
 </details>

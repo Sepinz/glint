@@ -19,7 +19,7 @@ USAGE: glint-cli [OPTIONS] [QUERY...]
 
 OPTIONS:
   -n, --max <N>        print at most N results
-  -s, --sort <KEY>     name (default) | path | size | date
+  -s, --sort <KEY>     name (default) | path (by folder) | size | date
   -r, --reverse        reverse the sort order
   -c, --count          print only the number of matches
   -l, --long           include size and modification date

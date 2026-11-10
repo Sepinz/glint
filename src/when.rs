@@ -163,8 +163,9 @@ type Bound = fn((i64, i64)) -> (i64, i64);
 pub fn parse_range(s: &str, c: &dyn Clock) -> Result<(u32, u32), String> {
     let clamp = |x: i64| x.clamp(0, u32::MAX as i64) as u32;
     let (lo, hi) = if let Some((a, b)) = s.split_once("..") {
-        let hi = span(b, c)?.1;
-        (span(a, c)?.0, if hi == AGE { i64::MAX } else { hi })
+        // An age on the right ends the range at that moment: `7d..2d`.
+        let (b0, b1) = span(b, c)?;
+        (span(a, c)?.0, if b1 == AGE { b0 } else { b1 })
     } else {
         let ops: [(&str, Bound); 5] = [
             (">=", |(s, _)| (s, i64::MAX)),

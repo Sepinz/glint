@@ -315,6 +315,17 @@ impl Index {
         self.flags.reserve(entries);
     }
 
+    /// Room for exactly this much more, with no growth slack.
+    fn reserve_exact(&mut self, entries: usize, name_bytes: usize) {
+        self.names.reserve_exact(name_bytes);
+        self.name_off.reserve_exact(entries);
+        self.name_len.reserve_exact(entries);
+        self.parent.reserve_exact(entries);
+        self.size.reserve_exact(entries);
+        self.mtime.reserve_exact(entries);
+        self.flags.reserve_exact(entries);
+    }
+
     pub(crate) fn set_name(&mut self, i: u32, name: &str) {
         if self.name(i) == name {
             return;
@@ -554,12 +565,22 @@ impl Index {
     }
 
     /// Concatenate independently built per-volume indexes. Call `finalize` after.
-    pub fn merge(parts: Vec<Index>) -> Index {
-        let mut out = Index::default();
-        let total: usize = parts.iter().map(Index::len).sum();
-        let names: usize = parts.iter().map(|p| p.names.len()).sum();
-        out.reserve(total, names);
-        for p in parts {
+    /// The largest part grows in place, so it is never held twice.
+    pub fn merge(mut parts: Vec<Index>) -> Index {
+        if let Some(big) = (0..parts.len()).max_by_key(|&k| parts[k].len()) {
+            parts.swap(0, big);
+        }
+        let mut parts = parts.into_iter();
+        let Some(mut out) = parts.next() else {
+            return Index::default();
+        };
+        out.sorted = Vec::new();
+        out.identity = false;
+        let rest: Vec<Index> = parts.collect();
+        let total: usize = rest.iter().map(Index::len).sum();
+        let names: usize = rest.iter().map(|p| p.names.len()).sum();
+        out.reserve_exact(total, names);
+        for p in rest {
             let base = out.len() as u32;
             let nbase = arena_offset(out.names.len() + p.names.len()) - p.names.len() as u32;
             let shift = |x: u32| if x == NONE { NONE } else { x + base };
@@ -578,6 +599,7 @@ impl Index {
                 out.volumes.push(v);
             }
         }
+        out.volumes.sort_by_key(|v| v.letter); // whichever part came first
         out
     }
 
@@ -639,33 +661,34 @@ impl Index {
             }
         }
         add.sort_unstable_by(|&x, &y| self.cmp_entries(x, y));
-        if add.len() <= 32 {
-            for i in add {
-                let pos = self
-                    .sorted
-                    .binary_search_by(|&p| self.cmp_entries(p, i))
-                    .unwrap_or_else(|e| e);
-                self.sorted.insert(pos, i);
-            }
-        } else {
-            let old = std::mem::take(&mut self.sorted);
-            let mut out = Vec::with_capacity(old.len() + add.len());
-            let (mut x, mut y) = (0, 0);
-            while x < old.len() && y < add.len() {
-                if self.cmp_entries(old[x], add[y]) == Ordering::Less {
-                    out.push(old[x]);
-                    x += 1;
-                } else {
-                    out.push(add[y]);
-                    y += 1;
-                }
-            }
-            out.extend_from_slice(&old[x..]);
-            out.extend_from_slice(&add[y..]);
-            self.sorted = out;
-        }
+        self.merge_sorted(&add);
         self.version = self.version.wrapping_add(1);
         self.mark_dirty();
+    }
+
+    /// Merge `add` (sorted, not yet listed) into `sorted`, in place and from
+    /// the back: a binary search per new entry and one move of each old one,
+    /// instead of comparing every old entry or shifting the tail per insert.
+    fn merge_sorted(&mut self, add: &[u32]) {
+        if add.is_empty() {
+            return;
+        }
+        let mut sorted = std::mem::take(&mut self.sorted);
+        let mut end = sorted.len();
+        if sorted.capacity() - end < add.len() {
+            sorted.reserve_exact(add.len().max(end / 64));
+        }
+        sorted.resize(end + add.len(), 0);
+        let mut write = sorted.len();
+        for &a in add.iter().rev() {
+            let at = sorted[..end].partition_point(|&p| self.cmp_entries(p, a) == Ordering::Less);
+            write -= end - at;
+            sorted.copy_within(at..end, write);
+            write -= 1;
+            sorted[write] = a;
+            end = at;
+        }
+        self.sorted = sorted;
     }
 
     /// Note an unsaved change (content, journal position, or both).

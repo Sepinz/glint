@@ -61,6 +61,8 @@ pub struct Engine {
 }
 
 const USN_BUF: usize = 1 << 16;
+/// Catching up reads bigger pages: each page is one pass over the sort order.
+const CATCH_UP_BUF: usize = 1 << 20;
 /// A file's alternate data streams as (name, size).
 type Listed = Vec<(String, u64)>;
 
@@ -344,7 +346,7 @@ impl Engine {
             .filter(|(_, v)| v.live)
             .map(|(i, v)| (i, v.letter, v.journal_id, v.next_usn))
             .collect();
-        let mut buf = vec![0u8; USN_BUF];
+        let mut buf = vec![0u8; CATCH_UP_BUF];
         let mut replayed = 0;
         for (vi, letter, jid, start) in vols {
             let f = volume::open_volume(letter).ok()?;
@@ -536,8 +538,10 @@ impl Engine {
             };
             match usn::read(&f, jid, start, true, &mut buf) {
                 Ok((next, changes)) => {
-                    let applied = {
-                        let mut g = self.write();
+                    // A wait that timed out read nothing: leave the index alone
+                    // (no write lock, and nothing new to save).
+                    let moved = next != start || !changes.is_empty();
+                    let applied = moved.then(|| self.write()).and_then(|mut g| {
                         // A rebuild may have swapped the index while we were blocked.
                         let same = !retired()
                             && g.volumes.get(vi).is_some_and(|v| {
@@ -549,7 +553,7 @@ impl Engine {
                             g.mark_dirty();
                             (applied, g.epoch)
                         })
-                    };
+                    });
                     if let Some((applied, epoch)) = applied {
                         self.refresh_stats(epoch, &applied.stat);
                         self.relink(letter, &applied.relink);

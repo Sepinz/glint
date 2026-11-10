@@ -34,7 +34,7 @@
 <tr><td>Open the window</td><td align="right"><b>~105 ms</b></td><td>Searching, index loaded</td><td align="right"><b>172 MB</b></td></tr>
 <tr><td>Reopen a running window</td><td align="right"><b>25 ms</b></td><td>Index saved on disk</td><td align="right"><b>170 MB</b></td></tr>
 <tr><td>Export every file to CSV</td><td align="right"><b>1.1 s</b></td><td>Size of each program</td><td align="right"><b>1.7 MB</b></td></tr>
-<tr><td>Full index, folder walk</td><td align="right"><b>4.7 s</b></td><td>Runtime to install</td><td align="right"><b>none</b></td></tr>
+<tr><td>Full index, folder walk, warm</td><td align="right"><b>4.7 s</b></td><td>Runtime to install</td><td align="right"><b>none</b></td></tr>
 <tr><td>Full index, as admin</td><td align="right"><b>11–12 s</b></td><td colspan="2"></td></tr>
 </table>
 
@@ -147,7 +147,7 @@ Searches ignore case. `size:` on a folder compares its total size.
 <summary><b>Limitations</b></summary>
 
 - Alternate data streams come from the `$MFT`, so they need an admin run. The internal `WofCompressedData` stream is always skipped.
-- Without admin rights, Glint walks folders and refreshes in the background when the index is over 30 minutes old. Folder totals are only as fresh as that refresh.
+- Without admin rights, Glint walks folders and refreshes in the background when the index is over 30 minutes old. Folder totals are only as fresh as that refresh. A walk of folders Windows has not cached yet can take minutes.
 - FAT, exFAT and ReFS drives are indexed by folder walk and do not update live.
 - Drives without an active USN journal are indexed but do not update live. Glint never creates or changes a journal.
 - An `$MFT` that is itself split across an attribute list is extremely rare. That drive falls back to the folder walk.

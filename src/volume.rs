@@ -326,7 +326,8 @@ pub fn hard_links(letter: u8, frn: u64) -> io::Result<Vec<(u64, String)>> {
         let (dir, name) = link.rsplit_once('\\').ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidData, "link path without folder")
         })?;
-        let parent = file_id(&open_meta(&format!("{drive}:{dir}\\"))?)?;
+        // Extended-length form: a link's folder may sit deeper than MAX_PATH.
+        let parent = file_id(&open_meta(&format!(r"\\?\{drive}:{dir}\"))?)?;
         out.push((parent, name.to_owned()));
     }
     Ok(out)
@@ -448,7 +449,6 @@ pub fn set_background_priority() {
     }
 }
 
-/// (working set, peak working set, private bytes) of this process.
 /// Hand everything we can back to the OS: coalesce the heap, then drop the
 /// whole working set (pages fault back in on demand). Call after freeing the
 /// index; with nothing left to keep, this leaves the process at ~1-2 MB.

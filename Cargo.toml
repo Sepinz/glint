@@ -2,6 +2,7 @@
 name = "glint"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.88"
 description = "Instant file-name search for Windows: raw NTFS MFT indexing and live USN journal updates"
 license = "MIT"
 repository = "https://github.com/Sepinz/glint"

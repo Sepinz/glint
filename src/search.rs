@@ -115,6 +115,29 @@ pub fn run(ix: &Index, q: &Query) -> Hits {
     filter(ix, q, ix.order(), &|| false).unwrap_or_default()
 }
 
+/// Order by the containing folder's path (what the Path column shows),
+/// keeping name order within a folder. Only each distinct folder's path is
+/// built, never one string per result.
+fn sort_by_folder(ix: &Index, v: &mut [u32]) {
+    let mut folders: Vec<u32> = v.par_iter().map(|&i| ix.parent(i)).collect();
+    folders.par_sort_unstable();
+    folders.dedup();
+    folders.par_sort_by_cached_key(|&p| {
+        let mut s = String::new();
+        ix.path_into(p, &mut s);
+        s.to_lowercase()
+    });
+    // (folder, rank), searchable by folder.
+    let mut rank: Vec<(u32, u32)> = folders.iter().zip(0u32..).map(|(&p, r)| (p, r)).collect();
+    drop(folders);
+    rank.par_sort_unstable();
+    v.par_sort_by_cached_key(|&i| {
+        let p = ix.parent(i);
+        rank.binary_search_by_key(&p, |r| r.0)
+            .map_or(u32::MAX, |k| rank[k].1)
+    });
+}
+
 /// Reorder results. Name order is free (it is the index order); other keys
 /// use a stable parallel sort with name order as the tie-break.
 pub fn sort(ix: &Index, hits: Hits, key: SortKey, desc: bool) -> Hits {
@@ -126,11 +149,7 @@ pub fn sort(ix: &Index, hits: Hits, key: SortKey, desc: bool) -> Hits {
         SortKey::Name => {}
         SortKey::Size => v.par_sort_by_key(|&i| (!ix.is_dir(i), ix.size(i))),
         SortKey::Date => v.par_sort_by_key(|&i| ix.mtime(i)),
-        SortKey::Path => v.par_sort_by_cached_key(|&i| {
-            let mut s = String::new();
-            ix.path_into(i, &mut s);
-            s.to_lowercase()
-        }),
+        SortKey::Path => sort_by_folder(ix, &mut v),
     }
     if desc {
         v.reverse();

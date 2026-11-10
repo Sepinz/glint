@@ -34,8 +34,16 @@ pub fn save(ix: &Index, path: &Path) -> io::Result<()> {
         fs::create_dir_all(d)?;
     }
     let tmp = path.with_extension(format!("{}.tmp", std::process::id()));
+    let done = write_snapshot(ix, &tmp).and_then(|()| fs::rename(&tmp, path));
+    if done.is_err() {
+        let _ = fs::remove_file(&tmp); // e.g. disk full: leave no partial file
+    }
+    done
+}
+
+fn write_snapshot(ix: &Index, tmp: &Path) -> io::Result<()> {
     {
-        let mut w = BufWriter::with_capacity(1 << 20, File::create(&tmp)?);
+        let mut w = BufWriter::with_capacity(1 << 20, File::create(tmp)?);
         w.write_all(&MAGIC)?;
         let sorted_len = if ix.identity {
             IDENTITY
@@ -80,7 +88,7 @@ pub fn save(ix: &Index, path: &Path) -> io::Result<()> {
         }
         w.flush()?;
     }
-    fs::rename(&tmp, path)
+    Ok(())
 }
 
 fn read_vec<T: Pod + Zeroable>(f: &mut File, len: usize) -> io::Result<Vec<T>> {

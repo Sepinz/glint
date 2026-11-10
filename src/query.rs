@@ -133,12 +133,14 @@ fn strip_kw<'a>(s: &'a str, kw: &str) -> Option<&'a str> {
     head.eq_ignore_ascii_case(kw).then(|| &s[kw.len()..])
 }
 
+/// Per-char lowercasing, exactly as names are lowered when matched (no
+/// final-sigma rule).
+fn lower(s: &str) -> String {
+    s.chars().flat_map(char::to_lowercase).collect()
+}
+
 fn text_pat(s: &str) -> Pat {
-    let lower: String = s
-        .replace('/', "\\")
-        .chars()
-        .flat_map(char::to_lowercase)
-        .collect();
+    let lower = lower(&s.replace('/', "\\"));
     if lower.contains(['*', '?']) {
         Pat::Wild {
             ascii: lower.is_ascii(),
@@ -194,11 +196,7 @@ fn parse_attr(s: &str) -> Result<Pat, String> {
 
 /// `parent:` value as the lowercased path `path_into` would render.
 fn parent_pat(s: &str) -> Pat {
-    let mut p: String = s
-        .replace('/', "\\")
-        .chars()
-        .flat_map(char::to_lowercase)
-        .collect();
+    let mut p = lower(&s.replace('/', "\\"));
     while p.ends_with('\\') && !p.ends_with(":\\") {
         p.pop();
     }
@@ -263,7 +261,7 @@ impl Query {
                 let exts = r
                     .split([';', '|', ','])
                     .filter(|e| !e.is_empty())
-                    .map(|e| e.trim_start_matches('.').to_lowercase().into_bytes())
+                    .map(|e| lower(e.trim_start_matches('.')).into_bytes())
                     .collect();
                 push(vec![Pat::Ext(exts)], neg, false, 0);
             } else if let Some(r) = strip_kw(body, "size:") {
@@ -463,7 +461,14 @@ impl Pat {
                 !ix.is_dir(i)
                     && memchr::memrchr(b'.', hay)
                         .map(|d| &hay[d + 1..])
-                        .is_some_and(|e| list.iter().any(|x| x.eq_ignore_ascii_case(e)))
+                        .is_some_and(|e| {
+                            if e.is_ascii() {
+                                return list.iter().any(|x| x.eq_ignore_ascii_case(e));
+                            }
+                            // The list is fully lowercased: do the same here.
+                            lower_into(e, &mut tmp.lower);
+                            list.iter().any(|x| x == tmp.lower.as_bytes())
+                        })
             }
             Pat::Size(c, n) => compare(*c, ix.size(i), *n),
             Pat::Files => !ix.is_dir(i),

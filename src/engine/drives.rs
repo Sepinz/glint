@@ -9,7 +9,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use super::{build_drive, Engine, Mode};
-use crate::index::{Index, Volume};
+use crate::index::Index;
 use crate::volume::{self, Drive};
 
 /// How often the drive letters are checked (one cheap system call).
@@ -35,13 +35,21 @@ impl SyncPlan {
     }
 }
 
+/// What drive syncing needs to know of an indexed volume (never its tables).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct Known {
+    pub letter: u8,
+    pub live: bool,
+    pub serial: u64,
+}
+
 /// Compare the indexed volumes with the drives present. `stale`: refresh
 /// volumes that are not live (no journal keeps them current), except the
 /// `fresh` ones just indexed. When elevated, a fixed NTFS drive that was
 /// indexed without its journal (by a folder walk) is re-read from its MFT
 /// if `may_go_live` says it has a journal and has not been tried yet.
 pub(super) fn plan_sync(
-    vols: &[Volume],
+    vols: &[Known],
     drives: &[Drive],
     admin: bool,
     (stale, fresh): (bool, &[u8]),
@@ -113,11 +121,19 @@ impl Engine {
         fresh: &[u8],
         mode: Mode,
     ) -> Option<Vec<u8>> {
-        let vols = self.read().volumes.clone();
+        let vols: Vec<Known> = self
+            .read()
+            .volumes
+            .iter()
+            .map(|v| Known {
+                letter: v.letter,
+                live: v.live,
+                serial: v.serial,
+            })
+            .collect();
         let plan = plan_sync(&vols, drives, self.admin, (stale, fresh), |l| {
             !self.tried_live(l) && volume::journal_active(l)
         });
-        drop(vols);
         if plan.is_empty() {
             return None;
         }
@@ -155,11 +171,10 @@ impl Engine {
             let mut old = std::mem::take(&mut *g);
             old.drop_volumes(|v| plan.drop.contains(&v.letter));
             let (epoch, version) = (old.epoch, old.version);
-            let mut ix = if parts.is_empty() {
-                old
-            } else {
-                Index::merge(std::iter::once(old).chain(parts).collect())
-            };
+            // With every volume dropped nothing of the old index survives:
+            // free it now instead of carrying it through the merge.
+            let old = (!old.volumes.is_empty()).then_some(old);
+            let mut ix = Index::merge(old.into_iter().chain(parts).collect());
             ix.finalize();
             ix.epoch = epoch.wrapping_add(1);
             ix.version = version.wrapping_add(1);
